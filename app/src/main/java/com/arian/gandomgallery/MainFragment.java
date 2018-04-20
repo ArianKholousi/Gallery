@@ -1,6 +1,7 @@
 package com.arian.gandomgallery;
 
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.GridLayoutManager;
@@ -32,9 +33,11 @@ import java.util.List;
  */
 public class MainFragment extends Fragment {
 
+    public static final String EXTRA_IMAGE_URL = "extra_image_url";
     private RecyclerView recyclerView;
     private PhotoAdapter photoAdapter;
     private List<GalleryItem> galleryItems;
+    private List<String> galleryitemURLs;
     private JsonObjectRequest jsonObjectRequest;
     private String url;
 
@@ -50,26 +53,35 @@ public class MainFragment extends Fragment {
     }
 
 
-
-
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
-        View view =  inflater.inflate(R.layout.fragment_main, container, false);
+        View view = inflater.inflate(R.layout.fragment_main, container, false);
 
         recyclerView = (RecyclerView) view.findViewById(R.id.recyclerView_gallery_items);
+        recyclerView.setLayoutManager(new GridLayoutManager(getActivity(), 3));
 
         galleryItems = new ArrayList<>();
+        galleryitemURLs = new ArrayList<>();
         url = "http://gandom.co/devTest/1/home";
-
 
         jsonObjectRequest = new JsonObjectRequest(Request.Method.GET, url, null, new Response.Listener<JSONObject>() {
             @Override
             public void onResponse(JSONObject response) {
                 try {
                     JSONArray jsonArray = response.getJSONArray("list");
-                    galleryItems = new Gson().fromJson(jsonArray.toString(), new TypeToken<List<GalleryItem>>(){}.getType());
+                    galleryItems = new Gson().fromJson(jsonArray.toString(), new TypeToken<List<GalleryItem>>() {
+                    }.getType());
+
+                    for (int i = 0; i < galleryItems.size(); i++) {
+                        for (int j = 0; j < galleryItems.get(i).getImages().size(); j++) {
+                            String url = "http://gandom.co/devTest/1/images/" + galleryItems.get(i).getImages().get(j);
+                            galleryitemURLs.add(url);
+                        }
+                    }
+
+                    recyclerView.getAdapter().notifyDataSetChanged();
 
                 } catch (JSONException e) {
                     e.printStackTrace();
@@ -82,10 +94,9 @@ public class MainFragment extends Fragment {
             }
         });
 
+
         SingletonRequestQueue.getInstance(getActivity()).getRequestQueue().add(jsonObjectRequest);
 
-
-        recyclerView.setLayoutManager(new GridLayoutManager(getActivity(),3));
         updateRecyclerView();
 
         return view;
@@ -97,69 +108,69 @@ public class MainFragment extends Fragment {
         updateRecyclerView();
     }
 
-    private class PhotoHolder extends RecyclerView.ViewHolder {
+    private class PhotoHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
         private ImageView imageView;
-        private GalleryItem galleryItem;
+        private String imageURL;
 
         public PhotoHolder(View itemView) {
             super(itemView);
+            itemView.setOnClickListener(this);
             imageView = (ImageView) itemView.findViewById(R.id.imageView_gallery_item);
         }
 
-        public void bindPhoto(GalleryItem item){
-            this.galleryItem = item;
+        public void bindPhoto(String imageURL) {
+            this.imageURL = imageURL;
+            Picasso.with(getActivity()).load(imageURL).into(imageView);
+        }
 
-            for (int i=0; i<item.getImages().size();i++){
-                String url = "http://gandom.co/devTest/1/images/" + item.getImages().get(i);
-                Picasso.with(getActivity()).load(url).into(imageView);
-            }
+        @Override
+        public void onClick(View v) {
+            Intent intent = new Intent(getActivity(), FullScreenActivity.class);
+            intent.putExtra(EXTRA_IMAGE_URL, imageURL);
+            startActivity(intent);
         }
     }
 
-    private class PhotoAdapter extends RecyclerView.Adapter<PhotoHolder>{
+    private class PhotoAdapter extends RecyclerView.Adapter<PhotoHolder> {
 
-        private List<GalleryItem> itemList;
+        private List<String> itemList;
 
-        public PhotoAdapter(List<GalleryItem> itemList) {
+        public PhotoAdapter(List<String> itemList) {
             this.itemList = itemList;
         }
 
-        public void setItemList(List<GalleryItem> itemList) {
+        public void setItemList(List<String> itemList) {
             this.itemList = itemList;
         }
 
         @Override
         public PhotoHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            View view = LayoutInflater.from(getActivity()).inflate(R.layout.gallery_item,parent,false);
+            View view = LayoutInflater.from(getActivity()).inflate(R.layout.gallery_item, parent, false);
             return new PhotoHolder(view);
         }
 
         @Override
         public void onBindViewHolder(PhotoHolder holder, int position) {
-            GalleryItem item = itemList.get(position);
-            holder.bindPhoto(item);
+            String imageURL = itemList.get(position);
+            holder.bindPhoto(imageURL);
         }
 
         @Override
         public int getItemCount() {
+            Log.d("mytag3", String.valueOf(itemList.size()));
             return itemList.size();
         }
     }
 
-    public void updateRecyclerView(){
-
-        if (photoAdapter == null){
-            photoAdapter = new PhotoAdapter(galleryItems);
+    public void updateRecyclerView() {
+        if (photoAdapter == null) {
+            photoAdapter = new PhotoAdapter(galleryitemURLs);
             recyclerView.setAdapter(photoAdapter);
-        }else {
-            photoAdapter.setItemList(galleryItems);
+        } else {
+            photoAdapter.setItemList(galleryitemURLs);
             photoAdapter.notifyDataSetChanged();
         }
 
     }
-
-
-
-
 
 }
