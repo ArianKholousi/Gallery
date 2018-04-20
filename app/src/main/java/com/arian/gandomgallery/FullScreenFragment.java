@@ -16,11 +16,9 @@ import com.squareup.picasso.Picasso;
  */
 public class FullScreenFragment extends Fragment {
 
-
+    private static final String ARGS_IMAGE_URL = "args_image_url";
     private ImageView imageView;
     private String imageURL;
-
-    private static final String ARGS_IMAGE_URL = "args_image_url";
 
     public FullScreenFragment() {
         // Required empty public constructor
@@ -46,7 +44,6 @@ public class FullScreenFragment extends Fragment {
         imageURL = getArguments().getString(ARGS_IMAGE_URL);
 
         Picasso.with(getActivity()).load(imageURL).into(imageView);
-
 
         return view;
     }

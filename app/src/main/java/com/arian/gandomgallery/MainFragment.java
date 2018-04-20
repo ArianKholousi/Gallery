@@ -4,13 +4,13 @@ package com.arian.gandomgallery;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
-import android.support.v7.widget.GridLayoutManager;
+import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.TextView;
 
 import com.android.volley.Request;
 import com.android.volley.Response;
@@ -34,10 +34,13 @@ import java.util.List;
 public class MainFragment extends Fragment {
 
     public static final String EXTRA_IMAGE_URL = "extra_image_url";
+    public static final int TYPE_ITEM = 0;
+    public static final int TYPE_DESCRIPTION = 1;
+
     private RecyclerView recyclerView;
     private PhotoAdapter photoAdapter;
     private List<GalleryItem> galleryItems;
-    private List<String> galleryitemURLs;
+    private List<String> galleryitemStrings;
     private JsonObjectRequest jsonObjectRequest;
     private String url;
 
@@ -60,10 +63,11 @@ public class MainFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_main, container, false);
 
         recyclerView = (RecyclerView) view.findViewById(R.id.recyclerView_gallery_items);
-        recyclerView.setLayoutManager(new GridLayoutManager(getActivity(), 3));
+        recyclerView.setLayoutManager(new LinearLayoutManager(getActivity()));
 
         galleryItems = new ArrayList<>();
-        galleryitemURLs = new ArrayList<>();
+        galleryitemStrings = new ArrayList<>();
+
         url = "http://gandom.co/devTest/1/home";
 
         jsonObjectRequest = new JsonObjectRequest(Request.Method.GET, url, null, new Response.Listener<JSONObject>() {
@@ -75,9 +79,12 @@ public class MainFragment extends Fragment {
                     }.getType());
 
                     for (int i = 0; i < galleryItems.size(); i++) {
+                        String header = galleryItems.get(i).getDescription();
+                        galleryitemStrings.add(header);
+
                         for (int j = 0; j < galleryItems.get(i).getImages().size(); j++) {
                             String url = "http://gandom.co/devTest/1/images/" + galleryItems.get(i).getImages().get(j);
-                            galleryitemURLs.add(url);
+                            galleryitemStrings.add(url);
                         }
                     }
 
@@ -93,7 +100,6 @@ public class MainFragment extends Fragment {
                 error.printStackTrace();
             }
         });
-
 
         SingletonRequestQueue.getInstance(getActivity()).getRequestQueue().add(jsonObjectRequest);
 
@@ -114,8 +120,8 @@ public class MainFragment extends Fragment {
 
         public PhotoHolder(View itemView) {
             super(itemView);
-            itemView.setOnClickListener(this);
             imageView = (ImageView) itemView.findViewById(R.id.imageView_gallery_item);
+            itemView.setOnClickListener(this);
         }
 
         public void bindPhoto(String imageURL) {
@@ -131,7 +137,23 @@ public class MainFragment extends Fragment {
         }
     }
 
-    private class PhotoAdapter extends RecyclerView.Adapter<PhotoHolder> {
+    private class HeaderHolder extends RecyclerView.ViewHolder {
+        TextView tvHeader;
+        String header;
+
+        public HeaderHolder(View itemView) {
+            super(itemView);
+            tvHeader = (TextView) itemView.findViewById(R.id.tv_header);
+        }
+
+        public void bindText(String header) {
+            this.header = header;
+            tvHeader.setText(header);
+        }
+
+    }
+
+    private class PhotoAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
         private List<String> itemList;
 
@@ -144,33 +166,66 @@ public class MainFragment extends Fragment {
         }
 
         @Override
-        public PhotoHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            View view = LayoutInflater.from(getActivity()).inflate(R.layout.gallery_item, parent, false);
-            return new PhotoHolder(view);
+        public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+            LayoutInflater inflater = LayoutInflater.from(getActivity());
+            switch (viewType) {
+                case TYPE_ITEM: {
+                    View view = inflater.inflate(R.layout.gallery_item, parent, false);
+                    return new PhotoHolder(view);
+                }
+                case TYPE_DESCRIPTION: {
+                    View view = inflater.inflate(R.layout.gallery_header, parent, false);
+                    return new HeaderHolder(view);
+                }
+                default:
+                    throw new IllegalStateException("unsupported item type");
+            }
         }
 
         @Override
-        public void onBindViewHolder(PhotoHolder holder, int position) {
-            String imageURL = itemList.get(position);
-            holder.bindPhoto(imageURL);
+        public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
+            int viewType = getItemViewType(position);
+            switch (viewType) {
+                case TYPE_ITEM: {
+                    String imageURL = itemList.get(position);
+                    PhotoHolder viewHolder = (PhotoHolder) holder;
+                    viewHolder.bindPhoto(imageURL);
+                    break;
+                }
+
+                case TYPE_DESCRIPTION: {
+                    String header = itemList.get(position);
+                    HeaderHolder viewHolder = (HeaderHolder) holder;
+                    viewHolder.bindText(header);
+                    break;
+                }
+                default:
+                    throw new IllegalStateException("unsupported item type");
+            }
+
         }
 
         @Override
         public int getItemCount() {
-            Log.d("mytag3", String.valueOf(itemList.size()));
             return itemList.size();
+        }
+
+        @Override
+        public int getItemViewType(int position) {
+            if (itemList.get(position).contains(".jpg"))
+                return TYPE_ITEM;
+            else
+                return TYPE_DESCRIPTION;
         }
     }
 
     public void updateRecyclerView() {
         if (photoAdapter == null) {
-            photoAdapter = new PhotoAdapter(galleryitemURLs);
+            photoAdapter = new PhotoAdapter(galleryitemStrings);
             recyclerView.setAdapter(photoAdapter);
         } else {
-            photoAdapter.setItemList(galleryitemURLs);
+            photoAdapter.setItemList(galleryitemStrings);
             photoAdapter.notifyDataSetChanged();
         }
-
     }
-
 }
